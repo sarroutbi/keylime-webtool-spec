@@ -66,7 +66,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-030 | Verification pipeline stage visualization | MUST | Verification Pipeline - Flow Visualization |
 | FR-031 | Per-stage verification timing and metrics | MUST | Verification Pipeline - Stage Metrics |
 | FR-032 | IMA quote progress tracking with gap detection | MUST | Verification Pipeline - Quote Progress Tracking |
-| FR-033 | IMA policy list view and management | MUST | Policy Management - IMA Policies |
+| FR-033 | Unified policy list view (IMA & MB) with kind discriminator | MUST | Policy Management - IMA Policies |
 | FR-034 | Policy CRUD with inline editor and syntax highlighting | MUST | Policy Management - Policy Editor |
 | FR-035 | Policy versioning with change history and rollback | MUST | Policy Management - Policy Editor |
 | FR-036 | Measured boot policy management | MUST | Policy Management - Policy Editor |
@@ -235,7 +235,7 @@ Feature: KPI Data Auto-Refresh
 
 ### FR-003: Sidebar Navigation
 
-**Description:** The System MUST provide a persistent sidebar navigation with the following modules: Dashboard (Fleet overview), Agents (Fleet management), Attestations (Analytics), Policies (IMA & MB), Certificates (TLS/TPM certs), Revocations (Alert history), Performance (System metrics), Audit Log (Security events), Integrations (Backend status), and Settings (Configuration).
+**Description:** The System MUST provide a persistent sidebar navigation with the following modules: Dashboard (Fleet overview), Agents (Fleet management), Attestations (Analytics), Policies (IMA & MB), Certificates (TLS/TPM certs), Alerts (Alert lifecycle), Performance (System metrics), Audit Log (Security events), Integrations (Backend status), and Settings (Configuration).
 
 **Trace:** Dashboard - Navigation Structure
 
@@ -673,6 +673,10 @@ Feature: Agent Detail Actions
 
 **Description:** The System MUST provide six specialized tabs on the agent detail page: (1) Timeline — attestation success/failure history with zoomable time range; (2) PCR Values — current PCR bank values with change history and diffs; (3) IMA Log — measurement list entries with policy match/mismatch indicators and search by file path or hash; (4) Boot Log — UEFI event log entries with measured boot validation; (5) Certificates — EK, AK, IAK, IDevID, mTLS certificate details and expiry countdown; (6) Raw Data — JSON view of full agent record with copy/export.
 
+**IMA Log Entry Schema:** Each IMA log entry returned by the backend MUST include: `pcr` (PCR index, typically 10), `template_hash` (SHA-256 hash of the template data), `template_name` (IMA template type, e.g., `ima-ng`), `filedata_hash` (hash of the measured file content), and `filename` (absolute path of the measured file).
+
+**Boot Log Entry Schema:** Each boot log entry returned by the backend MUST include: `pcr` (PCR index associated with the event), `event_type` (UEFI event type identifier, e.g., `EV_EFI_VARIABLE_DRIVER_CONFIG`), `digest` (hash digest of the event data), and `event_data` (human-readable description of the event).
+
 **Trace:** Agent Detail - Tabs and Sub-Views
 
 ```gherkin
@@ -1029,19 +1033,20 @@ Feature: IMA Quote Progress Tracking
     Then the System MUST display "IMA progress tracking not available for push mode agents"
 ```
 
-### FR-033: IMA Policy List View
+### FR-033: Policy List View and Management
 
-**Description:** The System MUST display a list of all IMA runtime policies showing: Policy Name, number of assigned Agents, Entry count, Checksum, Last Updated date, and Edit/View actions. A search bar MUST allow filtering policies by name. New Policy and Import buttons MUST be available.
+**Description:** The System MUST display a unified list of all runtime policies — both IMA and Measured Boot — in a single view. Each policy row MUST show: Policy Name, Kind (IMA or Measured Boot), number of assigned Agents, Entry count, Checksum, Last Updated date, and Edit/View actions. A search bar MUST allow filtering policies by name. New Policy and Import buttons MUST be available.
 
 **Trace:** Policy Management - IMA Policies
 
 ```gherkin
-Feature: IMA Policy List View
+Feature: Unified Policy List View
 
-  Scenario: Display policy list
-    Given the Verifier has 5 IMA policies configured
+  Scenario: Display unified policy list with kind column
+    Given the Verifier has 3 IMA policies and 2 Measured Boot policies configured
     When the user navigates to the Policy Management view
-    Then all 5 policies MUST be listed with name, agent count, entry count, checksum, and last updated date
+    Then all 5 policies MUST be listed with name, kind, agent count, entry count, checksum, and last updated date
+    And each policy MUST display its kind as "IMA" or "Measured Boot"
     And each policy MUST have "Edit" and "View" action links
 
   Scenario: Search policies by name
@@ -1050,7 +1055,7 @@ Feature: IMA Policy List View
     Then only "production-v2" MUST be displayed
 
   Scenario: No policies configured
-    Given the Verifier has zero IMA policies configured
+    Given the Verifier has zero policies configured
     When the user navigates to the Policy Management view
     Then the list MUST display an empty state with message "No policies configured"
     And a "New Policy" button MUST be prominently available
@@ -1989,7 +1994,7 @@ Feature: Capacity Planning Projections
 
 ### FR-069: Agent State Machine Visualization
 
-**Description:** The System MUST provide visual state machine diagrams for agent lifecycle states. Pull mode (v2 API) MUST display all 10 states: REGISTERED (0), START (1), SAVED (2), GET_QUOTE (3), RETRY (4), PROVIDE_V (5), FAILED (7), TERMINATED (8), INVALID_QUOTE (9), and TENANT_FAILED (10) with transition arrows. Push mode (v3 API) MUST display the 3-stage flow: capabilities submission, challenge/nonce response, and evidence evaluation. Failed states MUST be visually distinguished (e.g., red). The current state distribution across the fleet MUST be overlaid on the diagram.
+**Description:** The System MUST provide visual state machine diagrams for agent lifecycle states. Pull mode (v2 API) MUST display all 10 states: REGISTERED (0), START (1), SAVED (2), GET_QUOTE (3), RETRY (4), PROVIDE_V (5), FAILED (7), TERMINATED (8), INVALID_QUOTE (9), and TENANT_FAILED (10) with transition arrows. Push mode (v3 API) MUST display three computed states: PASS (100), FAIL (101), and PENDING (102), derived from the agent's attestation results. The push-mode verification flow follows 3 stages: capabilities submission, challenge/nonce response, and evidence evaluation. Failed states MUST be visually distinguished (e.g., red). The current state distribution across the fleet MUST be overlaid on the diagram.
 
 **Trace:** Keylime - Agent State Machine; Attestation Modes - Push Mode
 
@@ -2004,11 +2009,12 @@ Feature: Agent State Machine Visualization
     And FAILED MUST show count "3" with a red visual indicator
     And RETRY MUST show count "1"
 
-  Scenario: Display push mode attestation flow
+  Scenario: Display push mode computed states
     Given the deployment includes push mode (v3 API) agents
     When the user views the push mode state visualization
-    Then the 3-stage flow MUST be displayed: capabilities → challenge → evidence
-    And each stage MUST show the current count of agents at that stage
+    Then three computed states MUST be displayed: PASS (100), FAIL (101), and PENDING (102)
+    And each state MUST show the current count of agents in that state
+    And the 3-stage verification flow (capabilities → challenge → evidence) MUST be shown alongside
 
   Scenario: No agents in a specific state
     Given no agents are in FAILED state
@@ -3190,3 +3196,168 @@ As defined in the source presentation, the implementation follows three phases:
 **Phase 3 — Enterprise Scale:** Multi-tenancy, compliance reports (NIST, PCI DSS, SOC 2, FedRAMP), incident response integration (ServiceNow, Jira, PagerDuty), HA deployment, air-gapped packaging, multi-cluster support, WCAG 2.1 AA accessibility.
 
 **Trace:** Implementation Roadmap
+
+---
+
+## 7. Implementation Refinements
+
+> **Added:** 2026-04-10 — Requirements refined from implementation decisions in `keylime-webtool-frontend` and `keylime-webtool-backend`.
+
+### IR-001: Standard API Response Envelope
+
+**Description:** All backend REST API responses MUST use a standard JSON envelope format. This ensures consistent error handling and metadata across all frontend API consumers.
+
+**Response Envelope:**
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "error": null,
+  "timestamp": "2026-04-10T12:00:00Z",
+  "request_id": "uuid-v4"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the request succeeded |
+| `data` | T \| null | Response payload (null on error) |
+| `error` | string \| null | Error message (null on success) |
+| `timestamp` | string (ISO 8601) | Server-side response timestamp |
+| `request_id` | string (UUID v4) | Unique request identifier for tracing |
+
+**Error Envelope:** On error, the response MUST use the same envelope with `success: false`, `data: null`, and an `error` object containing a machine-readable `code` (e.g., `NOT_FOUND`, `UNAUTHORIZED`) and a human-readable `message`. HTTP status codes MUST map as: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 409 Conflict, 429 Too Many Requests, 502 Bad Gateway (Keylime API error), 503 Service Unavailable.
+
+**Trace:** Implementation — `keylime-webtool-backend/src/api/response.rs`
+
+### IR-002: Paginated Response Format
+
+**Description:** All list endpoints returning collections MUST use a standard paginated response wrapper inside the `data` field of the API envelope (IR-001).
+
+**Pagination Wrapper:**
+
+```json
+{
+  "items": [ ... ],
+  "page": 1,
+  "page_size": 25,
+  "total_items": 250,
+  "total_pages": 10
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | T[] | Array of result items for the current page |
+| `page` | integer | Current page number (1-based) |
+| `page_size` | integer | Number of items per page |
+| `total_items` | integer | Total count of matching items across all pages |
+| `total_pages` | integer | Total number of pages |
+
+**Trace:** Implementation — `keylime-webtool-backend/src/api/response.rs`, `keylime-webtool-frontend/src/types/index.ts`
+
+### IR-003: WebSocket Endpoint and Subscription Model
+
+**Description:** The backend MUST expose a WebSocket endpoint at `/ws/events` for real-time push updates to the frontend. The frontend MUST connect to this endpoint using the configured `VITE_WS_URL` environment variable (default: `ws://{host}/ws`).
+
+**Authentication:** The WebSocket connection MUST include the JWT access token as a query parameter (`?token=<access_token>`).
+
+**Subscription Model:** The frontend MUST specify a channel name when establishing the connection. Supported channels SHOULD include: `kpis` (fleet KPI updates), `agents` (agent state changes), `alerts` (new/updated alerts), and `policies` (policy change events).
+
+**Reconnection:** The frontend MUST implement automatic reconnection with exponential backoff (2^n × 1000ms, capped at 30 seconds). A connection status indicator MUST be available in the UI.
+
+**Trace:** Implementation — `keylime-webtool-backend/src/api/ws.rs`, `keylime-webtool-frontend/src/hooks/useWebSocket.ts`
+
+### IR-004: Backend Agent Data Model
+
+**Description:** The backend MUST represent agents using the following data model when communicating with the frontend. This model merges data from both the Keylime Verifier and Registrar APIs.
+
+| Field | Type | Source | Description |
+|-------|------|--------|-------------|
+| `id` | UUID | Verifier `agent_id` | Unique agent identifier |
+| `ip` | string | Verifier | Agent IP address |
+| `hostname` | string \| null | Derived | Resolved hostname (if available) |
+| `state` | AgentState | Verifier `operational_state` | Current agent state (see FR-069) |
+| `attestation_mode` | Pull \| Push | Verifier `accept_attestations` | Pull (v2 API) or Push (v3 API) |
+| `verifier_id` | string | Derived | Verifier instance serving this agent |
+| `registration_date` | datetime | Registrar | First registration timestamp |
+| `last_attestation` | datetime \| null | Verifier | Most recent attestation timestamp |
+| `consecutive_failures` | integer | Verifier | Count of consecutive attestation failures |
+| `total_attestations` | integer | Verifier `attestation_count` | Total attestation cycles (push mode) |
+| `boot_time` | datetime \| null | Verifier | Agent boot time (if reported) |
+| `hash_algorithm` | string | Verifier `hash_alg` | TPM hash algorithm (e.g., sha256) |
+| `encryption_algorithm` | string | Verifier `enc_alg` | TPM encryption algorithm |
+| `signing_algorithm` | string | Verifier `sign_alg` | TPM signing algorithm |
+| `ima_pcrs` | integer[] | Verifier | PCR indices used for IMA |
+| `ima_policy_id` | string \| null | Verifier `ima_policy` | Assigned IMA runtime policy name |
+| `mb_policy_id` | string \| null | Verifier `mb_policy` | Assigned measured boot policy name |
+| `tpm_policy` | string \| null | Verifier | TPM policy configuration |
+| `regcount` | integer | Registrar | Registration count (see SR-025) |
+
+**Agent List Summary:** List endpoints MUST return a summary projection: `id`, `ip`, `state`, `attestation_mode`, `last_attestation`, `assigned_policy` (IMA), `mb_policy`, and `failure_count`.
+
+**Trace:** Implementation — `keylime-webtool-backend/src/models/agent.rs`
+
+### IR-005: Verification Pipeline Stage Enumeration
+
+**Description:** The verification pipeline visualization (FR-030) MUST use the following stage identifiers and status values as defined in the backend:
+
+**Pipeline Stages (in execution order):**
+
+| Stage | Identifier | Description |
+|-------|-----------|-------------|
+| 1 | `ReceiveQuote` | Receive TPM quote and measurement logs from agent |
+| 2 | `ValidateTpmQuote` | Validate TPM quote signature and nonce freshness |
+| 3 | `CheckPcrValues` | Replay and verify PCR bank values |
+| 4 | `VerifyImaLog` | Verify IMA measurement entries against allowlist policy |
+| 5 | `VerifyMeasuredBoot` | Verify UEFI event log against measured boot policy |
+
+**Stage Status Values:**
+
+| Status | Description |
+|--------|-------------|
+| `Pass` | Stage completed successfully |
+| `Fail` | Stage failed — this is the failure point |
+| `NotReached` | Stage was not executed (prior stage failed) |
+
+Each stage result MUST include `duration_ms` (milliseconds spent in this stage, null if not reached).
+
+**Trace:** Implementation — `keylime-webtool-backend/src/models/attestation.rs`
+
+### IR-006: Failure Correlation Type Enumeration
+
+**Description:** Automatic failure correlation (FR-026) MUST classify correlated incidents using the following correlation type identifiers:
+
+| Type | Identifier | Description |
+|------|-----------|-------------|
+| Temporal | `Temporal` | Failures occurring within the same time window |
+| Causal | `Causal` | Failures sharing the same root cause or failure reason |
+| Topological | `Topological` | Failures grouped by datacenter, subnet, or verifier |
+| Policy-linked | `PolicyLinked` | Failures matching a recent policy update |
+
+**Trace:** Implementation — `keylime-webtool-backend/src/models/attestation.rs`
+
+### IR-007: Notification Channel and Delivery Status
+
+**Description:** Alert notification delivery (FR-010, FR-046) MUST track notifications using the following channel and delivery status values:
+
+**Notification Channels:**
+
+| Channel | Description |
+|---------|-------------|
+| `Email` | SMTP email delivery |
+| `Slack` | Slack webhook integration |
+| `Webhook` | Generic HTTP webhook |
+| `ZeroMq` | ZeroMQ revocation notification |
+
+**Delivery Status:**
+
+| Status | Description |
+|--------|-------------|
+| `Pending` | Notification queued for delivery |
+| `Sent` | Successfully delivered |
+| `Failed` | Delivery failed (will retry based on policy) |
+| `Retrying` | Retry in progress |
+
+**Trace:** Implementation — `keylime-webtool-backend/src/models/alert.rs`
