@@ -1,7 +1,7 @@
 # Software Requirements Specification: Keylime Monitoring Dashboard
 
 * **Source Document:** `slides/20260226-Keylime-Monitoring-Tool`
-* **Extraction Date:** 2026-04-09
+* **Initial Date:** 2026-04-13
 * **Methodology:** Spec-Driven Development (SDD)
 * **RFC 2119 Keywords:** MUST, MUST NOT, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, MAY, OPTIONAL
 
