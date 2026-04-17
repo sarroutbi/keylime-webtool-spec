@@ -116,6 +116,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-080 | Time format selection (12h/24h) for timestamp rendering | MUST | Settings - Visualization |
 | FR-081 | Sidebar alert indicator for integration service outages | MUST | Dashboard - Navigation Structure |
 | FR-082 | Agent ID hyperlinks in failure categorization list | MUST | Attestation Analytics - Failure Categorization |
+| FR-083 | Copy-to-clipboard button in Raw Data source selector toolbar | MUST | Agent Detail - Raw Data |
 
 ### 2.2 Non-Functional Requirements
 
@@ -727,7 +728,7 @@ Feature: Agent Detail Actions
 
 ### FR-020: Agent Detail Six-Tab Deep-Dive
 
-**Description:** The System MUST provide six specialized tabs on the agent detail page: (1) Timeline — attestation success/failure history with zoomable time range; (2) PCR Values — current PCR bank values with change history and diffs; (3) IMA Log — measurement list entries with policy match/mismatch indicators and search by file path or hash; (4) Boot Log — UEFI event log entries with measured boot validation; (5) Certificates — EK, AK, IAK, IDevID, mTLS certificate details and expiry countdown; (6) Raw Data — JSON view with source selector offering three views: Backend Data (merged agent summary computed by the dashboard), Registrar Data (raw JSON from the Keylime Registrar API), and Verifier Data (raw JSON from the Keylime Verifier API), with copy/export per view.
+**Description:** The System MUST provide six specialized tabs on the agent detail page: (1) Timeline — attestation success/failure history with zoomable time range; (2) PCR Values — current PCR bank values with change history and diffs; (3) IMA Log — measurement list entries with policy match/mismatch indicators and search by file path or hash; (4) Boot Log — UEFI event log entries with measured boot validation; (5) Certificates — EK, AK, IAK, IDevID, mTLS certificate details and expiry countdown; (6) Raw Data — JSON view with source selector offering three views: Backend Data (merged agent summary computed by the dashboard), Registrar Data (raw JSON from the Keylime Registrar API), and Verifier Data (raw JSON from the Keylime Verifier API), with a copy-to-clipboard button inline with the source selector (FR-083).
 
 **IMA Log Entry Schema:** Each IMA log entry returned by the backend MUST include: `pcr` (PCR index, typically 10), `template_hash` (SHA-256 hash of the template data), `template_name` (IMA template type, e.g., `ima-ng`), `filedata_hash` (hash of the measured file content), and `filename` (absolute path of the measured file).
 
@@ -786,19 +787,16 @@ Feature: Agent Detail Tabs
     Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
     When the user selects the "Backend Data" source
     Then the merged agent summary JSON computed by the dashboard backend MUST be displayed
-    And a "Copy" button MUST allow copying the JSON to clipboard
 
   Scenario: View raw registrar data
     Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
     When the user selects the "Registrar Data" source
     Then the full agent JSON record from the Keylime Registrar API MUST be displayed
-    And a "Copy" button MUST allow copying the JSON to clipboard
 
   Scenario: View raw verifier data
     Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
     When the user selects the "Verifier Data" source
     Then the full agent JSON record from the Keylime Verifier API MUST be displayed
-    And a "Copy" button MUST allow copying the JSON to clipboard
 
   Scenario: Tab data unavailable due to API error
     Given the user is viewing agent "a1b2c3d4" detail page
@@ -2576,6 +2574,38 @@ Feature: Agent ID Hyperlinks in Failure Categorization
     When the list renders
     Then agent "abc-123" MUST link to "/agents/abc-123"
     And agent "def-456" MUST link to "/agents/def-456"
+```
+
+### FR-083: Raw Data Copy-to-Clipboard Button
+
+**Description:** The System MUST display a compact "Copy" icon button positioned immediately to the right of the Raw Data source selector button group ("All" / "Backend" / "Registrar" / "Verifier"). When clicked, the button MUST copy the currently displayed JSON data to the user's clipboard using the Clipboard API. The button MUST work regardless of which source filter is active. After a successful copy, the button MUST provide brief visual feedback (e.g., a checkmark icon or tooltip confirmation) before reverting to its default state.
+
+**Trace:** Agent Detail - Raw Data
+
+```gherkin
+Feature: Raw Data Copy-to-Clipboard Button
+
+  Scenario: Copy button is displayed next to source selector
+    Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
+    Then a "Copy" icon button MUST be displayed to the right of the source selector group
+    And the button MUST be visually compact and aligned with the selector buttons
+
+  Scenario: Copy combined raw data to clipboard
+    Given the user is viewing the "Raw Data" tab with "All" sources selected
+    When the user clicks the "Copy" button
+    Then the combined JSON from all three sources MUST be copied to the clipboard
+    And the button MUST show brief visual feedback confirming the copy
+
+  Scenario: Copy filtered source data to clipboard
+    Given the user is viewing the "Raw Data" tab with "Backend Data" selected
+    When the user clicks the "Copy" button
+    Then only the Backend Data JSON MUST be copied to the clipboard
+    And the button MUST show brief visual feedback confirming the copy
+
+  Scenario: Copy feedback resets after delay
+    Given the user has clicked the "Copy" button and visual feedback is shown
+    When 2 seconds have elapsed
+    Then the button MUST return to its default icon state
 ```
 
 ---

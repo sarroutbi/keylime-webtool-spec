@@ -1041,6 +1041,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Explicit time format selection (12h/24h) | Accommodates regional conventions (e.g., US 12-hour vs European 24-hour); 24h default avoids AM/PM ambiguity in operational contexts | FR-080 |
 | Sidebar alert indicator for service outages | Surfaces integration health at a glance without navigating away; shares cached TanStack Query data with Integrations page to avoid extra requests | FR-081 |
 | Agent UUID hyperlinks in failure list | One-click drill-down from failure to agent detail eliminates manual navigation; uses React Router `<Link>` for SPA navigation without full reload | FR-082 |
+| Inline copy-to-clipboard button in Raw Data source selector | Single compact button adjacent to filter group copies whichever JSON view is active; uses Clipboard API with 2s checkmark feedback for confirmation; avoids per-view copy buttons to reduce clutter | FR-083 |
 
 ---
 
@@ -1106,7 +1107,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-016 | 3.4.3 | `POST /api/agents/bulk` |
 | FR-018 | 3.3.2, 3.4.3 | Full agent model, `GET /api/agents/:id` |
 | FR-019 | 3.4.3, 3.6.1 | `POST /api/agents/:id/actions/:action` |
-| FR-020 | 3.4.3 | Agent detail tabs: timeline, TPM Policy, IMA, boot, certs, raw (with backend/registrar/verifier source selector) |
+| FR-020 | 3.4.3 | Agent detail tabs: timeline, TPM Policy, IMA, boot, certs, raw (with backend/registrar/verifier source selector, copy button per FR-083) |
 | FR-021 | 3.4.3 | TPM Policy tab — reads `tpm_policy` from agent detail (`GET /api/agents/:id`) |
 | FR-024 | 3.4.3, 3.7.1 | Attestation timeline with distribution algorithm |
 | FR-025 | 3.3.4 | Alert types and severity |
@@ -1141,6 +1142,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-080 | 3.8.2 | `visualizationStore`: time format selection (12h/24h), 24h default, applied to all time-of-day rendering |
 | FR-081 | 3.2.2 | `Sidebar.tsx`: `useHasServiceDown()` hook queries integration health, renders exclamation badge on Integrations nav item |
 | FR-082 | 3.2.2 | Failure categorization list renders agent UUIDs as React Router `<Link>` to `/agents/{agent_id}` detail page |
+| FR-083 | 3.4.3 | Raw Data tab: compact copy icon button to the right of source selector group; Clipboard API with 2s checkmark feedback |
 
 ### 6.2 Non-Functional Requirements
 
