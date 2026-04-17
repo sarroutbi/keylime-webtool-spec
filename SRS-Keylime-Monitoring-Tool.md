@@ -720,7 +720,7 @@ Feature: Agent Detail Actions
 
 ### FR-020: Agent Detail Six-Tab Deep-Dive
 
-**Description:** The System MUST provide six specialized tabs on the agent detail page: (1) Timeline — attestation success/failure history with zoomable time range; (2) PCR Values — current PCR bank values with change history and diffs; (3) IMA Log — measurement list entries with policy match/mismatch indicators and search by file path or hash; (4) Boot Log — UEFI event log entries with measured boot validation; (5) Certificates — EK, AK, IAK, IDevID, mTLS certificate details and expiry countdown; (6) Raw Data — JSON view of full agent record with copy/export.
+**Description:** The System MUST provide six specialized tabs on the agent detail page: (1) Timeline — attestation success/failure history with zoomable time range; (2) PCR Values — current PCR bank values with change history and diffs; (3) IMA Log — measurement list entries with policy match/mismatch indicators and search by file path or hash; (4) Boot Log — UEFI event log entries with measured boot validation; (5) Certificates — EK, AK, IAK, IDevID, mTLS certificate details and expiry countdown; (6) Raw Data — JSON view with source selector offering three views: Backend Data (merged agent summary computed by the dashboard), Registrar Data (raw JSON from the Keylime Registrar API), and Verifier Data (raw JSON from the Keylime Verifier API), with copy/export per view.
 
 **IMA Log Entry Schema:** Each IMA log entry returned by the backend MUST include: `pcr` (PCR index, typically 10), `template_hash` (SHA-256 hash of the template data), `template_name` (IMA template type, e.g., `ima-ng`), `filedata_hash` (hash of the measured file content), and `filename` (absolute path of the measured file).
 
@@ -769,10 +769,28 @@ Feature: Agent Detail Tabs
     Then EK, AK, IAK, IDevID, and mTLS certificate details MUST be displayed
     And each certificate MUST show an expiry countdown (days remaining)
 
-  Scenario: View raw JSON data
+  Scenario: View raw data with source selector
     Given the user is viewing agent "a1b2c3d4" detail page
     When the user selects the "Raw Data" tab
-    Then the full agent JSON record from the Verifier API MUST be displayed
+    Then a source selector MUST be displayed with options "Backend Data", "Registrar Data", and "Verifier Data"
+    And the default selection MUST display all three sources combined
+
+  Scenario: View raw backend data
+    Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
+    When the user selects the "Backend Data" source
+    Then the merged agent summary JSON computed by the dashboard backend MUST be displayed
+    And a "Copy" button MUST allow copying the JSON to clipboard
+
+  Scenario: View raw registrar data
+    Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
+    When the user selects the "Registrar Data" source
+    Then the full agent JSON record from the Keylime Registrar API MUST be displayed
+    And a "Copy" button MUST allow copying the JSON to clipboard
+
+  Scenario: View raw verifier data
+    Given the user is viewing the "Raw Data" tab for agent "a1b2c3d4"
+    When the user selects the "Verifier Data" source
+    Then the full agent JSON record from the Keylime Verifier API MUST be displayed
     And a "Copy" button MUST allow copying the JSON to clipboard
 
   Scenario: Tab data unavailable due to API error

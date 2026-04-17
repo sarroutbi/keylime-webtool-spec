@@ -607,7 +607,10 @@ All list endpoints use a standard pagination wrapper inside `data`:
 |   +-- GET /:id/ima-log         IMA log entries (FR-020)
 |   +-- GET /:id/boot-log        Boot log entries (FR-020)
 |   +-- GET /:id/certificates    Agent certificates (FR-020)
-|   +-- GET /:id/raw             Raw Verifier + Registrar JSON
+|   +-- GET /:id/raw             Raw data — combined by default (FR-020)
+|   +-- GET /:id/raw/backend     Backend-computed agent summary (FR-020)
+|   +-- GET /:id/raw/registrar   Raw Registrar API JSON (FR-020)
+|   +-- GET /:id/raw/verifier    Raw Verifier API JSON (FR-020)
 +-- /attestations
 |   +-- GET /                    List attestation results (FR-024)
 |   +-- GET /summary             Attestation KPIs (FR-024)
@@ -1098,7 +1101,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-016 | 3.4.3 | `POST /api/agents/bulk` |
 | FR-018 | 3.3.2, 3.4.3 | Full agent model, `GET /api/agents/:id` |
 | FR-019 | 3.4.3, 3.6.1 | `POST /api/agents/:id/actions/:action` |
-| FR-020 | 3.4.3 | Agent detail tabs: timeline, TPM Policy, IMA, boot, certs, raw |
+| FR-020 | 3.4.3 | Agent detail tabs: timeline, TPM Policy, IMA, boot, certs, raw (with backend/registrar/verifier source selector) |
 | FR-021 | 3.4.3 | TPM Policy tab — reads `tpm_policy` from agent detail (`GET /api/agents/:id`) |
 | FR-024 | 3.4.3, 3.7.1 | Attestation timeline with distribution algorithm |
 | FR-025 | 3.3.4 | Alert types and severity |
