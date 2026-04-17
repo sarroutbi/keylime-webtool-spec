@@ -187,7 +187,7 @@ keylime-webtool-frontend/src/
 |   +-- Layout/
 |   |   +-- Layout.tsx         Two-column layout, collapsible sidebar (FR-076)
 |   |   +-- Layout.css         Sidebar slide transition styles
-|   |   +-- Sidebar.tsx        Navigation with 10 modules
+|   |   +-- Sidebar.tsx        Navigation with 10 modules, integration health indicator (FR-081)
 |   |   +-- TopBar.tsx         Hamburger toggle, search, theme toggle, user menu
 |   +-- common/
 |       +-- DataTable.tsx      Generic sortable, selectable table
@@ -1039,6 +1039,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Timezone auto-detect with manual override | Default to browser timezone for zero-config; IANA dropdown for operators in different timezones than their fleet | FR-078 |
 | Explicit date format selection | Eliminates locale-dependent ambiguity (e.g., 04/05 = April 5 vs May 4); ISO 8601 default for cross-region consistency | FR-079 |
 | Explicit time format selection (12h/24h) | Accommodates regional conventions (e.g., US 12-hour vs European 24-hour); 24h default avoids AM/PM ambiguity in operational contexts | FR-080 |
+| Sidebar alert indicator for service outages | Surfaces integration health at a glance without navigating away; shares cached TanStack Query data with Integrations page to avoid extra requests | FR-081 |
 
 ---
 
@@ -1137,6 +1138,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-078 | 3.8.2 | `visualizationStore`: timezone with auto-detect, IANA timezone dropdown in Settings |
 | FR-079 | 3.8.2 | `visualizationStore`: date format selection (6 formats), ISO 8601 default, applied to all timestamp rendering |
 | FR-080 | 3.8.2 | `visualizationStore`: time format selection (12h/24h), 24h default, applied to all time-of-day rendering |
+| FR-081 | 3.2.2 | `Sidebar.tsx`: `useHasServiceDown()` hook queries integration health, renders exclamation badge on Integrations nav item |
 
 ### 6.2 Non-Functional Requirements
 

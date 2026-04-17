@@ -114,6 +114,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-078 | Timezone selection with auto-detect | SHOULD | Settings - Visualization |
 | FR-079 | Date format selection for timestamp rendering | MUST | Settings - Visualization |
 | FR-080 | Time format selection (12h/24h) for timestamp rendering | MUST | Settings - Visualization |
+| FR-081 | Sidebar alert indicator for integration service outages | MUST | Dashboard - Navigation Structure |
 
 ### 2.2 Non-Functional Requirements
 
@@ -2510,6 +2511,40 @@ Feature: Time Format Selection
     When the user navigates to any page displaying timestamps
     Then timestamps MUST render times in 24-hour format
     And the Settings > Visualization time format selector MUST show "24h" as the default
+```
+
+### FR-081: Sidebar Alert Indicator for Integration Service Outages
+
+**Description:** The System MUST display a visual alert indicator (exclamation mark badge) on the Integrations navigation item in the sidebar whenever one or more monitored services (Backend, Verifier, Registrar) are in a DOWN state. The indicator MUST use the same health-check queries as the Integrations page (FR-077) and share cached data via TanStack Query to avoid additional network requests. The indicator MUST update in real time with the same 1-second polling interval. When all services are UP, the indicator MUST NOT be displayed.
+
+**Trace:** Dashboard - Navigation Structure
+
+```gherkin
+Feature: Sidebar Alert Indicator for Integration Outages
+
+  Scenario: Indicator appears when backend is down
+    Given the webtool backend is unreachable
+    When the sidebar renders
+    Then the Integrations navigation item MUST display an exclamation mark badge
+    And the badge MUST have a tooltip "One or more services are down"
+
+  Scenario: Indicator appears when a core service is down
+    Given the webtool backend is reachable
+    And the Keylime Verifier is in DOWN state
+    When the sidebar renders
+    Then the Integrations navigation item MUST display an exclamation mark badge
+
+  Scenario: Indicator disappears when all services recover
+    Given the Integrations navigation item is displaying an exclamation mark badge
+    When all monitored services return to UP state
+    Then the exclamation mark badge MUST be removed from the Integrations navigation item
+
+  Scenario: No indicator when all services are healthy
+    Given the webtool backend is reachable
+    And the Keylime Verifier is in UP state
+    And the Keylime Registrar is in UP state
+    When the sidebar renders
+    Then the Integrations navigation item MUST NOT display an exclamation mark badge
 ```
 
 ---
