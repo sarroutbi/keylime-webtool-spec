@@ -1040,6 +1040,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Explicit date format selection | Eliminates locale-dependent ambiguity (e.g., 04/05 = April 5 vs May 4); ISO 8601 default for cross-region consistency | FR-079 |
 | Explicit time format selection (12h/24h) | Accommodates regional conventions (e.g., US 12-hour vs European 24-hour); 24h default avoids AM/PM ambiguity in operational contexts | FR-080 |
 | Sidebar alert indicator for service outages | Surfaces integration health at a glance without navigating away; shares cached TanStack Query data with Integrations page to avoid extra requests | FR-081 |
+| Agent UUID hyperlinks in failure list | One-click drill-down from failure to agent detail eliminates manual navigation; uses React Router `<Link>` for SPA navigation without full reload | FR-082 |
 
 ---
 
@@ -1139,6 +1140,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-079 | 3.8.2 | `visualizationStore`: date format selection (6 formats), ISO 8601 default, applied to all timestamp rendering |
 | FR-080 | 3.8.2 | `visualizationStore`: time format selection (12h/24h), 24h default, applied to all time-of-day rendering |
 | FR-081 | 3.2.2 | `Sidebar.tsx`: `useHasServiceDown()` hook queries integration health, renders exclamation badge on Integrations nav item |
+| FR-082 | 3.2.2 | Failure categorization list renders agent UUIDs as React Router `<Link>` to `/agents/{agent_id}` detail page |
 
 ### 6.2 Non-Functional Requirements
 

@@ -115,6 +115,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-079 | Date format selection for timestamp rendering | MUST | Settings - Visualization |
 | FR-080 | Time format selection (12h/24h) for timestamp rendering | MUST | Settings - Visualization |
 | FR-081 | Sidebar alert indicator for integration service outages | MUST | Dashboard - Navigation Structure |
+| FR-082 | Agent ID hyperlinks in failure categorization list | MUST | Attestation Analytics - Failure Categorization |
 
 ### 2.2 Non-Functional Requirements
 
@@ -2547,6 +2548,34 @@ Feature: Sidebar Alert Indicator for Integration Outages
     And the Keylime Registrar is in UP state
     When the sidebar renders
     Then the Integrations navigation item MUST NOT display an exclamation mark badge
+```
+
+### FR-082: Agent ID Hyperlinks in Failure Categorization List
+
+**Description:** The System MUST render each agent UUID in the Attestation Analytics failure categorization list (FR-025) as a navigable hyperlink to the corresponding agent detail page (`/agents/{agent_id}`). The link text MUST display the agent UUID. Clicking the link MUST navigate the user to the agent detail view (FR-012) for the affected agent, enabling one-click drill-down from a failure entry to its agent context.
+
+**Trace:** Attestation Analytics - Failure Categorization
+
+```gherkin
+Feature: Agent ID Hyperlinks in Failure Categorization
+
+  Scenario: Agent UUID renders as a hyperlink
+    Given the failure categorization list contains a failure for agent "abc-123"
+    When the list renders
+    Then the agent UUID "abc-123" MUST be displayed as a hyperlink
+    And the hyperlink target MUST be "/agents/abc-123"
+
+  Scenario: Clicking agent link navigates to agent detail
+    Given the failure categorization list displays a hyperlink for agent "abc-123"
+    When the user clicks the agent UUID hyperlink
+    Then the System MUST navigate to the agent detail page for "abc-123"
+    And the agent detail view (FR-012) MUST be displayed
+
+  Scenario: Multiple failures for different agents each link independently
+    Given the failure categorization list contains failures for agents "abc-123" and "def-456"
+    When the list renders
+    Then agent "abc-123" MUST link to "/agents/abc-123"
+    And agent "def-456" MUST link to "/agents/def-456"
 ```
 
 ---
