@@ -111,6 +111,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-075 | TOML config file persistence for backend settings | MUST | Settings - Configuration Persistence |
 | FR-076 | Sidebar visibility toggle (hamburger button) | MUST | Dashboard - Navigation Structure |
 | FR-077 | Webtool backend health check with polling | MUST | Integration Status - Backend Connectivity |
+| FR-078 | Timezone selection with auto-detect | SHOULD | Settings - Visualization |
 
 ### 2.2 Non-Functional Requirements
 
@@ -2403,6 +2404,36 @@ Feature: Webtool Backend Health Check
     When the backend becomes reachable again
     Then the "Webtool Backend" section MUST show "UP" within 1 second
     And the disabled sections MUST be re-enabled automatically
+```
+
+### FR-078: Timezone Selection with Auto-Detect
+
+**Description:** The System SHOULD provide a timezone setting in the Visualization Settings section. The user MUST be able to either auto-detect the browser timezone or manually select a timezone from a dropdown list of IANA timezone identifiers (e.g. `Europe/Madrid`, `America/New_York`, `UTC`). When auto-detect is active, the dropdown MUST be disabled. The selected timezone MUST be persisted in localStorage via the visualization store and applied to all timestamp rendering across the dashboard.
+
+**Trace:** Settings - Visualization
+
+```gherkin
+Feature: Timezone Selection
+
+  Scenario: Auto-detect browser timezone
+    Given the user navigates to Settings > Visualization
+    When the user clicks the "Auto-Detect" button
+    Then the timezone MUST be set to the browser's local timezone
+    And the timezone dropdown MUST be disabled
+    And the preference MUST persist across sessions via localStorage
+
+  Scenario: Manual timezone selection
+    Given the user navigates to Settings > Visualization
+    And auto-detect is not active
+    When the user selects "UTC" from the timezone dropdown
+    Then all timestamps across the dashboard MUST render in UTC
+    And the preference MUST persist across sessions via localStorage
+
+  Scenario: Switching from auto-detect to manual
+    Given auto-detect is active and the timezone dropdown is disabled
+    When the user clicks the "Auto-Detect" button again to deactivate it
+    Then the timezone dropdown MUST become enabled
+    And the user MUST be able to select a different timezone
 ```
 
 ---

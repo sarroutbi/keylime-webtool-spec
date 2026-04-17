@@ -1036,6 +1036,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Vite proxy for backend health checks | Avoids CORS failures in dev mode when probing backend settings endpoint | FR-077 |
 | Mock/Production URL presets | Reduces configuration friction; auto-detects active mode from saved URLs | FR-074 |
 | `#[serde(default)]` on Keylime models | Tolerates missing/renamed fields across Keylime API versions without breaking deserialization | NFR-002 |
+| Timezone auto-detect with manual override | Default to browser timezone for zero-config; IANA dropdown for operators in different timezones than their fleet | FR-078 |
 
 ---
 
@@ -1131,6 +1132,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-075 | 3.8.1 | `SettingsStore`, TOML persistence with atomic writes |
 | FR-076 | 3.2.2 | Layout hamburger button, sidebar CSS transition |
 | FR-077 | 3.2.2, 3.7.3 | 1s polling via `refetchInterval`, `probe_verifier()`/`probe_registrar()` |
+| FR-078 | 3.8.2 | `visualizationStore`: timezone with auto-detect, IANA timezone dropdown in Settings |
 
 ### 6.2 Non-Functional Requirements
 
