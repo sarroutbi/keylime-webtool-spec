@@ -346,7 +346,7 @@ Feature: Time Range Selector
 
 ### FR-006: Auto-Refresh Toggle
 
-**Description:** The System MUST provide a toggle control that enables or disables live automatic updates of dashboard data. When enabled, the auto-refresh setting and configurable interval MUST be wired to the data fetching layer (TanStack React Query `refetchInterval`) so that all queries automatically poll the backend. The auto-refresh interval MUST be configurable via the Settings page visualization settings.
+**Description:** The System MUST provide a toggle control that enables or disables live automatic updates of dashboard data. When enabled, the auto-refresh setting and configurable interval MUST be wired to the data fetching layer (TanStack React Query `refetchInterval`) so that all queries automatically poll the backend. When disabled, `refetchInterval` MUST be set to `false`, stopping all automatic polling, and the refresh interval configuration control MUST be disabled (non-interactive) since it has no effect while auto-refresh is off. The auto-refresh interval MUST be configurable via the Settings page visualization settings.
 
 **Trace:** Dashboard - Navigation Structure
 
@@ -358,11 +358,13 @@ Feature: Auto-Refresh Toggle
     When the user toggles auto-refresh off
     Then dashboard data MUST stop refreshing automatically
     And the displayed data MUST remain static until manually refreshed or re-enabled
+    And the refresh interval configuration control MUST be disabled
 
   Scenario: Enable auto-refresh
     Given auto-refresh is currently disabled
     When the user toggles auto-refresh on
     Then dashboard data MUST begin refreshing at the configured interval
+    And the refresh interval configuration control MUST be enabled
 
   Scenario: Auto-refresh interval drives all queries
     Given auto-refresh is enabled with a 10-second interval

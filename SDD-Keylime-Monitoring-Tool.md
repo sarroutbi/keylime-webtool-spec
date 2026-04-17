@@ -992,7 +992,7 @@ The Backend URL is also runtime-configurable via the Settings page (FR-072). The
 * `/api/*` -> `http://localhost:8080` (API backend, avoids CORS in dev mode)
 * `/ws/*` -> `ws://localhost:8080` (WebSocket)
 
-**Auto-Refresh Wiring:** The `visualizationStore` `autoRefresh` and `refreshInterval` settings are connected to `QueryClient.setDefaultOptions({ queries: { refetchInterval } })` in `App.tsx`, so all TanStack React Query hooks automatically poll at the configured interval when auto-refresh is enabled.
+**Auto-Refresh Wiring:** The `visualizationStore` `autoRefresh` and `refreshInterval` settings are connected to `QueryClient.setDefaultOptions({ queries: { refetchInterval } })` in `App.tsx`, so all TanStack React Query hooks automatically poll at the configured interval when auto-refresh is enabled. When auto-refresh is disabled, `refetchInterval` is set to `false`, which stops all automatic polling. The refresh interval configuration control in the Settings page is also disabled (non-interactive) while auto-refresh is off, since the interval value has no effect.
 
 **Trace:** Implementation -- `keylime-webtool-frontend/vite.config.ts`, `keylime-webtool-frontend/src/App.tsx`
 
@@ -1020,7 +1020,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Rust (Axum) for backend | Memory safety without GC, `#![forbid(unsafe_code)]`, async performance for 10K WebSocket connections | SR-023, NFR-005 |
 | React + TypeScript for frontend | Type safety, component reuse, ecosystem maturity for SPA | NFR-004 |
 | Zustand for client state | Lightweight, no boilerplate, supports localStorage persistence for settings | FR-008 |
-| TanStack React Query for server state | Automatic cache invalidation, stale-while-revalidate, retry logic; `refetchInterval` wired to auto-refresh settings | NFR-001, FR-006 |
+| TanStack React Query for server state | Automatic cache invalidation, stale-while-revalidate, retry logic; `refetchInterval` wired to auto-refresh settings (`false` when disabled) | NFR-001, FR-006 |
 | In-memory AlertStore (pre-DB) | Enables full alert lifecycle development before TimescaleDB integration | FR-047 |
 | Circuit breaker on Keylime API | Prevents cascading failures when Verifier is overloaded or unreachable | NFR-017 |
 | Health probes bypass circuit breaker | Connectivity status must reflect real reachability, not circuit breaker state | FR-057, FR-077 |
