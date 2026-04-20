@@ -117,6 +117,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-081 | Sidebar alert indicator for integration service outages | MUST | Dashboard - Navigation Structure |
 | FR-082 | Agent ID hyperlinks in failure categorization list | MUST | Attestation Analytics - Failure Categorization |
 | FR-083 | Copy-to-clipboard button in Raw Data source selector toolbar | MUST | Agent Detail - Raw Data |
+| FR-084 | Fleet Overview KPI card drill-down navigation | SHOULD | Dashboard - Key Performance Indicators |
 
 ### 2.2 Non-Functional Requirements
 
@@ -2614,6 +2615,55 @@ Feature: Raw Data Copy-to-Clipboard Button
     Given the user has clicked the "Copy" button and visual feedback is shown
     When 2 seconds have elapsed
     Then the button MUST return to its default icon state
+```
+
+### FR-084: Fleet Overview KPI Card Drill-Down Navigation
+
+**Description:** Each KPI card on the Fleet Overview Dashboard SHOULD act as a clickable navigation element that takes the user to the relevant detailed view. The cards MUST display a visual affordance (e.g., cursor change, hover highlight) indicating they are interactive. The navigation targets are: Total Active Agents → Agent List; Failed Agents → Agent List filtered by failed states (7, 9, 10); Attestation Success Rate → Attestation Analytics; Average Attestation Latency → Attestation Analytics; Certificate Expiry Warnings → Certificates; Active IMA Policies → Policies; Revocation Events (24h) → Alerts; Consecutive Failures → Agent List sorted by failure count; Registration Count → Agent List.
+
+**Trace:** Dashboard - Key Performance Indicators; FR-001
+
+```gherkin
+Feature: Fleet Overview KPI Card Drill-Down Navigation
+
+  Scenario: Click Total Active Agents card
+    Given the user is viewing the Fleet Overview Dashboard
+    And the "Total Active Agents" KPI card displays "247"
+    When the user clicks the "Total Active Agents" card
+    Then the System MUST navigate to the Agent List page at /agents
+
+  Scenario: Click Failed Agents card navigates with filter
+    Given the user is viewing the Fleet Overview Dashboard
+    And the "Failed Agents" KPI card displays "3"
+    When the user clicks the "Failed Agents" card
+    Then the System MUST navigate to the Agent List page
+    And the agent state filter MUST be pre-applied for states FAILED, INVALID_QUOTE, and TENANT_FAILED
+
+  Scenario: Click Attestation Success Rate card
+    Given the user is viewing the Fleet Overview Dashboard
+    When the user clicks the "Attestation Success Rate" card
+    Then the System MUST navigate to the Attestation Analytics page at /attestations
+
+  Scenario: Click Certificate Expiry Warnings card
+    Given the user is viewing the Fleet Overview Dashboard
+    When the user clicks the "Certificate Expiry Warnings" card
+    Then the System MUST navigate to the Certificates page at /certificates
+
+  Scenario: Click Active IMA Policies card
+    Given the user is viewing the Fleet Overview Dashboard
+    When the user clicks the "Active IMA Policies" card
+    Then the System MUST navigate to the Policies page at /policies
+
+  Scenario: Click Revocation Events card
+    Given the user is viewing the Fleet Overview Dashboard
+    When the user clicks the "Revocation Events (24h)" card
+    Then the System MUST navigate to the Alerts page at /alerts
+
+  Scenario: KPI cards show interactive affordance
+    Given the user is viewing the Fleet Overview Dashboard
+    When the user hovers over any KPI card
+    Then the card MUST display a pointer cursor
+    And the card SHOULD display a hover highlight effect
 ```
 
 ---

@@ -191,7 +191,7 @@ keylime-webtool-frontend/src/
 |   |   +-- TopBar.tsx         Hamburger toggle, search, theme toggle, user menu
 |   +-- common/
 |       +-- DataTable.tsx      Generic sortable, selectable table
-|       +-- KpiCard.tsx        Metric card with variant styling
+|       +-- KpiCard.tsx        Metric card with variant styling, optional drill-down link (FR-084)
 |       +-- StatusBadge.tsx    Color-coded status label
 |       +-- AgentStateChart.tsx  Recharts pie chart for agent states
 +-- hooks/
@@ -1043,6 +1043,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Sidebar alert indicator for service outages | Surfaces integration health at a glance without navigating away; shares cached TanStack Query data with Integrations page to avoid extra requests | FR-081 |
 | Agent UUID hyperlinks in failure list | One-click drill-down from failure to agent detail eliminates manual navigation; uses React Router `<Link>` for SPA navigation without full reload | FR-082 |
 | Inline copy-to-clipboard button in Raw Data source selector | Single compact button adjacent to filter group copies whichever JSON view is active; uses Clipboard API with 2s checkmark feedback for confirmation; avoids per-view copy buttons to reduce clutter | FR-083 |
+| Clickable KPI cards with drill-down navigation | Each `KpiCard` accepts an optional `linkTo` prop (route string); when set, the card renders as a React Router `<Link>`, shows pointer cursor and hover highlight, and navigates to the target view (with optional query params for pre-applied filters) | FR-084 |
 
 ---
 
@@ -1144,6 +1145,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-081 | 3.2.2 | `Sidebar.tsx`: `useHasServiceDown()` hook queries integration health, renders exclamation badge on Integrations nav item |
 | FR-082 | 3.2.2 | Failure categorization list renders agent UUIDs as React Router `<Link>` to `/agents/{agent_id}` detail page |
 | FR-083 | 3.4.3 | Raw Data tab: compact copy icon button to the right of source selector group; Clipboard API with 2s checkmark feedback |
+| FR-084 | 3.2.2 | `KpiCard.tsx`: optional `linkTo` prop wraps card in React Router `<Link>`; Dashboard page maps each KPI to its target route (e.g., Failed Agents → `/agents?state=failed,invalid_quote,tenant_failed`) |
 
 ### 6.2 Non-Functional Requirements
 
