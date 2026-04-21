@@ -829,7 +829,7 @@ New --> Acknowledged --> UnderInvestigation --> Resolved
 
 **Terminal States:** `Resolved` and `Dismissed` reject all further transitions.
 
-**Summary Computation:** Active alerts (not `Resolved` or `Dismissed`) are counted by severity. Resolved alerts within the last 24 hours are counted separately for the dashboard KPI.
+**Summary Computation:** Active alerts (not `Resolved` or `Dismissed`) are counted by severity (`critical`, `warnings`, `info`). Resolved alerts within the last 24 hours are counted separately (`resolved_24h`). All four counters are returned by `GET /api/alerts/summary` and used consistently by both the Dashboard and the Alert Center KPI cards.
 
 **Trace:** Implementation -- `keylime-webtool-backend/src/models/alert_store.rs`
 
@@ -878,7 +878,11 @@ The frontend derives attestation KPIs from agent state data when no attestation 
 | Total Agents | `paginated_response.total_items` or `agents.length` |
 | Failed Attestations | Count of agents in `failed`, `invalid_quote`, `tenant_failed` (pull) or `fail`, `timeout` (push) state |
 | Success Rate | `((total - failed) / total) * 100` |
-| Active Alerts | From `GET /api/alerts/summary` -> `critical` count |
+| Active Alerts | From `GET /api/alerts/summary` -> `critical + warnings` count |
+| Alert Center: Critical | From `GET /api/alerts/summary` -> `critical` |
+| Alert Center: Warnings | From `GET /api/alerts/summary` -> `warnings` |
+| Alert Center: Info | From `GET /api/alerts/summary` -> `info` |
+| Alert Center: Resolved | From `GET /api/alerts/summary` -> `resolved_24h` |
 
 **Rationale:** Ensures the dashboard displays meaningful data before TimescaleDB attestation history persistence is implemented.
 
