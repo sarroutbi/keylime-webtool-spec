@@ -1509,9 +1509,9 @@ Feature: Alert Lifecycle Workflow
     And the resolution reason MUST indicate "auto-resolved on successful re-attestation"
 
   Scenario: Alert Center KPI cards use consistent summary data
-    Given the alert summary endpoint returns critical=2, warnings=2, info=2, resolved_24h=0
+    Given the alert summary endpoint returns critical=2, warnings=2, info=2
     When the user views the Alert Center page
-    Then all four KPI cards (Critical, Warnings, Info, Resolved) MUST display values from the summary endpoint
+    Then all three KPI cards (Critical, Warnings, Info) MUST display values from the summary endpoint
     And the KPI values MUST NOT change when table filters are applied
 ```
 
