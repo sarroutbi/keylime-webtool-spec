@@ -2718,23 +2718,27 @@ Feature: Alert Center Distribution Pie Charts
 
 ### FR-086: Integrations Topology View with SSH Connect
 
-**Description:** The System SHOULD provide a Graphic Mode (Topology View) on the Integrations page as an alternative to the default list layout. The user MUST be able to toggle between "List View" and "Topology View" via a button on the Integrations page. In Topology View, each monitored service node (Registrar, Verifier, Webtool Backend) MUST be rendered as a visual icon representing its role. Node color MUST reflect health status: green for UP, red for DOWN, and yellow for HIGH LOAD — consistent with the health indicators defined in FR-057. The topology view MUST reuse the same health-check query cache (TanStack Query) as the list view and FR-081, without issuing additional network requests. Each node MUST display its configured endpoint address. In Topology View, each node MUST offer an "SSH Connect" action that initiates an SSH session to the node's configured endpoint address (e.g., via `ssh://` URI scheme). The SSH Connect action MUST be available only to users with the Operator or Admin role (SR-003); for users with the Viewer role, the SSH action MUST NOT be rendered. The user's selected view mode (List or Topology) SHOULD persist across sessions via localStorage. All icons and visual assets MUST be self-contained (no external CDN or runtime internet access).
+**Description:** The System SHOULD provide a Graphic Mode (Topology View) on the Integrations page as the default layout. The user MUST be able to toggle between "List View" and "Topology View" via a button on the Integrations page. In Topology View, each monitored service node (Registrar, Verifier, Webtool Backend) MUST be rendered as a visual icon representing its role. Node color MUST reflect health status: green for UP, red for DOWN, and yellow for HIGH LOAD — consistent with the health indicators defined in FR-057. The topology view MUST reuse the same health-check query cache (TanStack Query) as the list view and FR-081, without issuing additional network requests. Each node MUST display its configured endpoint address. In Topology View, each node MUST offer an "SSH Connect" action that initiates an SSH session to the node's configured endpoint address (e.g., via `ssh://` URI scheme). The SSH Connect action MUST be available only to users with the Operator or Admin role (SR-003); for users with the Viewer role, the SSH action MUST NOT be rendered. The user's selected view mode (List or Topology) SHOULD persist across sessions via localStorage. All icons and visual assets MUST be self-contained (no external CDN or runtime internet access).
 
 **Trace:** Integration Status - Backend Connectivity; FR-057, FR-077, FR-081, SR-003
 
 ```gherkin
 Feature: Integrations Topology View
 
-  Scenario: Toggle from List View to Topology View
-    Given the user is viewing the Integrations page in List View
-    When the user clicks the "Topology View" toggle button
-    Then the Integrations page MUST switch to Topology View
+  Scenario: Default view is Topology View
+    Given the user navigates to the Integrations page for the first time
+    Then the Integrations page MUST display the Topology View
     And each monitored service MUST be rendered as an icon with its endpoint address
 
   Scenario: Toggle from Topology View to List View
     Given the user is viewing the Integrations page in Topology View
     When the user clicks the "List View" toggle button
-    Then the Integrations page MUST switch back to the tabular list layout
+    Then the Integrations page MUST switch to the tabular list layout
+
+  Scenario: Toggle from List View to Topology View
+    Given the user is viewing the Integrations page in List View
+    When the user clicks the "Topology View" toggle button
+    Then the Integrations page MUST switch back to Topology View
 
   Scenario: UP node displays green indicator
     Given the Verifier service is in UP state
@@ -2769,9 +2773,9 @@ Feature: Integrations Topology View
     Then the "SSH Connect" action MUST NOT be rendered on any node
 
   Scenario: View mode preference persists across sessions
-    Given the user has selected Topology View
+    Given the user has selected List View
     When the user navigates away and returns to the Integrations page
-    Then the Integrations page MUST load in Topology View
+    Then the Integrations page MUST load in List View
 
   Scenario: Topology View reuses cached health-check data
     Given the user is viewing the Integrations page in List View
