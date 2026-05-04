@@ -303,6 +303,16 @@ The `KeylimeClient` is wrapped in `Arc<RwLock<Arc<KeylimeClient>>>` to support h
 | `mb_policy` | string? | Measured boot policy name |
 | `failure_count` | integer | Consecutive failure count |
 
+<!-- CHANGED: Added Agent List Response Format subsection -->
+**Agent List Response Format:** The Keylime Verifier and Registrar APIs return agent UUID lists in different structures. The backend normalizes both formats into a flat `Vec<String>` before merging:
+
+| API | Endpoint | Response Format | Example |
+|-----|----------|----------------|---------|
+| Verifier | `GET /v2/agents/` | Nested arrays | `[["uuid1"], ["uuid2"]]` |
+| Registrar | `GET /v2/agents/` | Flat array | `["uuid1", "uuid2"]` |
+
+The backend deserializer accepts both shapes transparently, enabling a single merge pass regardless of which API provided the list.
+
 **Trace:** Implementation -- `keylime-webtool-backend/src/models/agent.rs`
 
 #### 3.3.3 Agent State Enumeration
@@ -387,26 +397,42 @@ The `KeylimeClient` is wrapped in `Arc<RwLock<Arc<KeylimeClient>>>` to support h
 | `signature_algorithm` | string | Signature algorithm | FR-052 |
 | `sans` | string[] | Subject Alternative Names | FR-052 |
 | `key_usage` | string[] | Key usage extensions | FR-052 |
-| `status` | CertificateStatus | `valid` \| `expiring_soon` \| `critical` \| `expired` | FR-051 |
+| `status` | CertificateStatus | `valid` \| `warning_90d` \| `warning_30d` \| `critical_7d` \| `critical_1d` \| `expired` | FR-051 |
 | `associated_entity` | string | Agent ID or hostname | FR-050 |
 | `chain_valid` | boolean? | Chain validation result | FR-052 |
 
-**Certificate Expiry Derivation:** Since Keylime does not expose certificate metadata directly, the backend reconstructs certificate records from Registrar agent data:
+<!-- CHANGED: status field updated to 6-tier classification (was: valid | expiring_soon | critical | expired) -->
+<!-- CHANGED: Replaced synthetic derivation with X.509 parsing approach -->
+**Certificate Extraction from Registrar Data:** The backend parses real X.509 certificates from Keylime Registrar agent fields when available, falling back to synthetic records only when the raw field is not a parseable certificate.
 
-| Certificate | Source | Expiry Logic |
-|-------------|--------|-------------|
-| EK | Registrar `ek_tpm` | Fixed 10-year validity from registration date |
-| AK | Registrar `aik_tpm` | Agents with `regcount > 2`: 25-day validity; others: 2-year validity |
+| Certificate | Registrar Field | Parsing Strategy |
+|-------------|-----------------|-----------------|
+| EK | `ekcert` (preferred), `ek_tpm` (fallback) | If `ekcert` is present and non-empty, parse as X.509 and extract metadata. If absent or empty, fall back to `ek_tpm` (raw TPM public key) and generate a synthetic record with 10-year validity from registration date. |
+| mTLS | `mtls_cert` | If the field value is the literal string `"disabled"`, no certificate record is generated. Otherwise, parse as X.509. |
 
+**Certificate Parser Input Formats:** The parser (`cert_parser::try_parse_x509`) accepts three input encodings, tried in order:
+
+| Format | Pattern | Typical Source |
+|--------|---------|---------------|
+| Raw PEM | `-----BEGIN CERTIFICATE-----\n...` | Registrar `mtls_cert` |
+| Base64-encoded DER | `MIIE...` (raw Base64, no PEM header) | Registrar `ekcert` |
+| Base64-encoded PEM | `LS0tLS1CRUdJTi...` (Base64 of PEM text) | Mock / test data |
+
+**Expiry Derivation:** When the source field contains a valid X.509 certificate, expiry is extracted directly from the `notAfter` field. The synthetic 10-year validity fallback applies only when the field is not a parseable X.509 certificate (i.e., `ek_tpm` raw public key).
+
+<!-- CHANGED: 6-tier expiry status thresholds -->
 **Expiry Status Thresholds:**
 
 | Status | Condition |
 |--------|-----------|
 | `expired` | `not_after < now` |
-| `expiring_soon` | `not_after < now + 30 days` |
-| `valid` | `not_after >= now + 30 days` |
+| `critical_1d` | `not_after < now + 1 day` |
+| `critical_7d` | `not_after < now + 7 days` |
+| `warning_30d` | `not_after < now + 30 days` |
+| `warning_90d` | `not_after < now + 90 days` |
+| `valid` | `not_after >= now + 90 days` |
 
-**Trace:** Implementation -- `keylime-webtool-backend/src/models/certificate.rs`, `keylime-webtool-backend/src/api/handlers/certificates.rs`
+**Trace:** Implementation -- `keylime-webtool-backend/src/models/certificate.rs`, `keylime-webtool-backend/src/services/cert_parser.rs`, `keylime-webtool-backend/src/api/handlers/certificates.rs`
 
 #### 3.3.6 Attestation and Pipeline Models
 
