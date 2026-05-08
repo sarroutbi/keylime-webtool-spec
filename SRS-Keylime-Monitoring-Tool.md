@@ -24,7 +24,7 @@ The Keylime Monitoring Dashboard (the "System") is a web-based security operatio
 
 The System transforms Keylime from a CLI-driven security tool into a visual operations platform, reducing mean time to detect (MTTD) attestation failures from hours to seconds, centralizing policy and certificate lifecycle management, and providing tamper-evident audit trails for compliance reporting.
 
-**Technical Architecture:** React.js + TypeScript SPA frontend, Rust (Axum) async backend, TimescaleDB for time-series storage, Redis for caching, mTLS + rustls for Keylime API communication.
+**Technical Architecture:** React.js + TypeScript SPA frontend, Rust (Axum) async backend, TimescaleDB for production time-series storage (SQLite supported for development and small deployments), Redis for production caching (in-memory fallback when unavailable), mTLS + rustls for Keylime API communication. A hexagonal repository abstraction (`Arc<dyn Trait>`) decouples business logic from storage, enabling backend portability across database and cache implementations.
 
 ---
 
@@ -149,6 +149,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | NFR-022 | Signed update packages with SBOM for offline updates | MUST | Deployment - Offline & Air-Gapped |
 | NFR-023 | Maximum 5 parallel concurrent log fetches to Verifier | MUST | Technical Architecture - IMA Log & Data Decoupling |
 | NFR-024 | AI Assistant query performance and rate limiting | SHOULD | AI Assistant - Conversational Interface |
+| NFR-025 | Zero-configuration development setup with storage backend portability | MUST | Technical Architecture - Repository Abstraction |
 
 ### 2.3 Security Requirements
 
@@ -3051,9 +3052,9 @@ Feature: WCAG 2.1 Level AA Accessibility
 
 ### NFR-015: Multiple Deployment Options
 
-**Description:** The System MUST support deployment via OCI container images, Kubernetes Helm charts, RPM packages, and systemd services. Each deployment method MUST be documented and tested.
+**Description:** The System MUST support deployment via OCI container images, Kubernetes Helm charts, RPM packages, and systemd services. Each deployment method MUST be documented and tested. The System MUST support two deployment profiles: a **Production** profile (TimescaleDB + Redis, required for HA and large fleets) and a **Development/Testing** profile (SQLite or in-memory storage + in-memory cache, requiring zero external infrastructure). The Development/Testing profile MUST be selectable solely via environment variable presence — no code changes, feature flags, or recompilation SHALL be required (NFR-025).
 
-**Trace:** Technical Architecture - Deployment
+**Trace:** Technical Architecture - Deployment; Technical Architecture - Repository Abstraction
 
 ```gherkin
 Feature: Multiple Deployment Options
@@ -3069,6 +3070,12 @@ Feature: Multiple Deployment Options
     When the operator installs the RPM package
     Then a systemd service MUST be created and enabled
     And the dashboard MUST start via systemctl
+
+  Scenario: Deploy in Development/Testing profile
+    Given a developer workstation with no TimescaleDB or Redis installed
+    When the operator starts the backend binary with DATABASE_URL set to "sqlite:dev.db"
+    Then the System MUST start with SQLite storage and in-memory cache
+    And all functional requirements MUST be testable without external infrastructure
 ```
 
 ### NFR-016: Graceful Degradation
@@ -3277,6 +3284,78 @@ Feature: AI Assistant Query Performance and Rate Limiting
     When the LLM or MCP server does not respond within 10 seconds
     Then the System SHOULD display "Query timed out — the AI service is not responding. Please try again."
     And the user SHOULD be able to retry the query
+```
+
+### NFR-025: Zero-Configuration Development Setup with Storage Backend Portability
+
+**Description:** The System MUST run with no database or cache configuration by defaulting to volatile in-memory storage for both data and cache. When the `DATABASE_URL` environment variable is set to a `sqlite:` scheme, the System MUST use SQLite as the persistent storage backend, creating the schema automatically via `CREATE TABLE IF NOT EXISTS` with no external migration tooling required. When `DATABASE_URL` is set to a `postgres:` scheme, the System MUST use TimescaleDB as the persistent storage backend. When `REDIS_URL` is set, the System MUST use Redis as the cache backend; otherwise it MUST fall back to an in-memory cache. All storage behavior — including security invariants such as audit hash chaining (SR-015) and two-person policy approval (SR-018) — MUST be enforced identically across all backends via the hexagonal repository abstraction.
+
+SQLite MUST enable WAL mode for concurrent read access. SQLite MUST store JSON payloads as TEXT columns. The System MUST NOT require any manual schema migration steps for the SQLite backend.
+
+**Deployment Profiles:**
+
+| Aspect | Development / Testing | Production |
+|--------|----------------------|------------|
+| Database | In-memory (default) or SQLite (`sqlite:file.db` / `sqlite::memory:`) | TimescaleDB |
+| Cache | In-memory (default) | Redis |
+| Configuration | Zero — runs with no env vars | `DATABASE_URL` + `REDIS_URL` required |
+| Persistence | Volatile (in-memory) or file-based (SQLite) | Durable with replication |
+| Scalability | Single-node, single-writer | Multi-node, concurrent writers |
+| Time-series features | None (flat tables) | Hypertables, continuous aggregates |
+
+**SQLite Limitations vs TimescaleDB:**
+
+| Capability | TimescaleDB | SQLite |
+|------------|-------------|--------|
+| Hypertables / continuous aggregates | Supported | Not available |
+| JSONB columns | Native JSONB with indexing | JSON stored as TEXT, no index support |
+| Native UUID type | `uuid` type | Stored as TEXT |
+| Concurrent writers | Multi-connection | Single-writer (WAL allows concurrent reads) |
+| Time-bucket functions | `time_bucket()`, `date_trunc()` | `strftime()` only |
+| Policy versioning operations | `list_versions()`, `diff()`, `rollback()` | Not implemented |
+| Connection pooling | Full pool support | Single connection recommended |
+| Replication / HA | Streaming replication | Not available |
+
+Operators MUST understand these trade-offs when selecting a storage backend. SQLite is suitable for development, testing, demos, and small single-node deployments. TimescaleDB remains REQUIRED for production deployments exceeding 100 agents or requiring high availability.
+
+**Trace:** Technical Architecture - Repository Abstraction; Deployment - Development Setup
+
+```gherkin
+Feature: Zero-Configuration Development Setup
+
+  Scenario: Backend starts with no configuration
+    Given no DATABASE_URL environment variable is set
+    And no REDIS_URL environment variable is set
+    When the backend binary is started
+    Then the System MUST start successfully using in-memory storage
+    And the System MUST start successfully using in-memory cache
+    And all API endpoints MUST be functional
+
+  Scenario: Backend starts with SQLite configuration
+    Given DATABASE_URL is set to "sqlite:keylime.db"
+    And no REDIS_URL environment variable is set
+    When the backend binary is started
+    Then the System MUST create the SQLite database file if it does not exist
+    And the System MUST create all required tables via CREATE TABLE IF NOT EXISTS
+    And SQLite MUST operate in WAL mode
+    And all API endpoints MUST be functional
+
+  Scenario: Backend starts with SQLite in-memory mode
+    Given DATABASE_URL is set to "sqlite::memory:"
+    When the backend binary is started
+    Then the System MUST start successfully with an in-memory SQLite database
+    And the schema MUST be created automatically
+
+  Scenario: Audit hash chain enforced on SQLite backend
+    Given the System is running with a SQLite storage backend
+    When an audit event is recorded
+    Then the audit entry MUST include the SHA-256 hash of the previous entry
+    And the hash chain MUST be verifiable from the root anchor
+
+  Scenario: Two-person policy approval enforced on SQLite backend
+    Given the System is running with a SQLite storage backend
+    When Admin A drafts a policy change and attempts to approve it
+    Then the System MUST reject the self-approval with "self-approval not permitted"
 ```
 
 ---
@@ -3612,9 +3691,9 @@ Feature: PoP Token Privacy
 
 ### SR-015: Tamper-Evident Audit Log with RFC 3161
 
-**Description:** The System MUST implement tamper-evident hash-chained audit logging with RFC 3161 timestamp anchoring. This is defined in detail in FR-061 and duplicated here as a security requirement to ensure traceability.
+**Description:** The System MUST implement tamper-evident hash-chained audit logging with RFC 3161 timestamp anchoring. This is defined in detail in FR-061 and duplicated here as a security requirement to ensure traceability. The hash chain computation and verification MUST be implemented in the repository abstraction layer and enforced identically across all storage backends (TimescaleDB, SQLite, in-memory). No storage backend MAY bypass or weaken the hash chain invariant (NFR-025).
 
-**Trace:** Compliance - Tamper-Evident Audit Logging
+**Trace:** Compliance - Tamper-Evident Audit Logging; Technical Architecture - Repository Abstraction
 
 ```gherkin
 Feature: Tamper-Evident Audit Log
@@ -3630,6 +3709,12 @@ Feature: Tamper-Evident Audit Log
     When the audit log chain root is created
     Then the root MUST be anchored with an RFC 3161 timestamp token
     And the timestamp token MUST be verifiable against the TSA certificate
+
+  Scenario: Hash chain enforced on non-production storage backend
+    Given the System is running with a SQLite or in-memory storage backend
+    When an audit event is recorded
+    Then the hash chain MUST be computed identically to the TimescaleDB backend
+    And the chain MUST be verifiable using the same verification algorithm
 ```
 
 ### SR-016: SSRF Protection
@@ -3670,9 +3755,9 @@ Feature: Two-Person Policy Approval Security
 
 ### SR-018: Drafter Cannot Self-Approve
 
-**Description:** The System MUST enforce that the approver of a policy change MUST NOT be the same user as the drafter. This separation of duties is a critical security control.
+**Description:** The System MUST enforce that the approver of a policy change MUST NOT be the same user as the drafter. This separation of duties is a critical security control. The drafter-identity check MUST be implemented in the repository abstraction layer and enforced identically across all storage backends (TimescaleDB, SQLite, in-memory). No storage backend MAY bypass or weaken the two-person approval invariant (NFR-025).
 
-**Trace:** Policy Management - Two-Person Rule
+**Trace:** Policy Management - Two-Person Rule; Technical Architecture - Repository Abstraction
 
 ```gherkin
 Feature: Drafter Cannot Self-Approve
@@ -3682,6 +3767,12 @@ Feature: Drafter Cannot Self-Approve
     When Admin A attempts to approve the same change
     Then the System MUST reject the approval with "self-approval not permitted"
     And the audit log MUST record the rejected self-approval attempt
+
+  Scenario: Self-approval rejected on non-production storage backend
+    Given the System is running with a SQLite or in-memory storage backend
+    And Admin A drafted a policy change
+    When Admin A attempts to approve the same change
+    Then the System MUST reject the approval with "self-approval not permitted"
 ```
 
 ### SR-019: Multi-Tenancy Isolation
