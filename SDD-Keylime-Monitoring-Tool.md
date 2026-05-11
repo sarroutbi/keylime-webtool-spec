@@ -941,6 +941,53 @@ Re-render with new data
 
 **Trace:** SRS SR-001, SR-002, SR-010, SR-011
 
+#### 3.5.4 Data Flow: Background Attestation Recording
+
+The backend spawns a long-lived Tokio task at startup that records attestation observations independently of frontend API requests, ensuring the time-series attestation history (FR-024) is complete regardless of dashboard usage.
+
+```text
+tokio::spawn(background_observation_loop)
+    |
+    +-- tokio::time::interval(observation_interval)  // Default: 30s (FR-087)
+    |
+    +-- Every tick:
+    |   +-- Acquire KeylimeClient via AppState::keylime()
+    |   +-- Fetch agent list from Verifier API
+    |   +-- For each agent:
+    |   |   +-- Check dedup tracker (HashMap<Uuid, (Instant, AttestationResult)>)
+    |   |   |       |
+    |   |   |       +-- Same result within 30s: SKIP (dedup)
+    |   |   |       +-- State changed OR interval elapsed: RECORD
+    |   |   |
+    |   |   +-- Store observation via AttestationRepository::store_result()
+    |   |   +-- Update dedup tracker entry
+    |   |
+    |   +-- Every 10th tick (5 min / 30s = 10):
+    |       +-- Full fleet reconciliation sweep (NFR-020)
+    |       +-- Compare cached state against Verifier, log corrections
+    |
+    +-- tokio::select! { _ = interval.tick() => ..., _ = shutdown_rx => break }
+```
+
+**Relationship to existing requirements:**
+
+| Requirement | Relationship |
+|-------------|-------------|
+| NFR-007 (Polling Fallback) | Background task reuses the same 30s polling cadence; both operate in polling mode against the Verifier API |
+| NFR-020 (Reconciliation) | The 5-minute reconciliation sweep is performed by the background task as a superset of the per-tick observation — every 10th tick performs a full fleet comparison |
+| FR-024 (Attestation Analytics) | The background task is the primary data producer for `AttestationRepository`, ensuring timeline charts have continuous data |
+| NFR-006 (Event-Driven Ingestion) | When ZeroMQ event-driven ingestion is available, the background task serves as the fallback/reconciliation mechanism rather than the primary data path |
+
+**Reuse of `record_agent_observations()`:** The background task calls the same `pub(crate) async fn record_agent_observations(state: &AppState)` used by the attestation API handlers. This function iterates agents, consults the dedup tracker on `AppState`, and stores results via `AttestationRepository::store_result()`. Sharing this function guarantees identical observation logic whether triggered by an API request or the background task.
+
+**Dedup Tracker:** `AppState` holds an `attestation_tracker: Arc<Mutex<HashMap<Uuid, (Instant, String)>>>` that maps each agent UUID to its last recorded observation timestamp and result. The tracker prevents redundant writes when an agent's state has not changed and fewer than 30 seconds have elapsed since the last recording. State changes (e.g., `pass` → `fail`) bypass the interval check and record immediately.
+
+**Graceful Shutdown:** The task uses `tokio::select!` to race the interval tick against a shutdown signal (`tokio::sync::watch` or `broadcast` channel). On receiving the shutdown signal, the task breaks out of the loop, logs the number of observations recorded during its lifetime, and drops cleanly. No in-flight Verifier API calls are aborted — the current tick completes before shutdown.
+
+**Configurable Interval:** The observation interval is read from `AppConfig::keylime::observation_interval_secs` (default: 30). Changing this value requires a restart; runtime hot-reload is not supported for the background task interval.
+
+**Trace:** SRS FR-087, FR-024, NFR-006, NFR-007, NFR-020; Implementation -- `keylime-webtool-backend/src/api/handlers/attestations.rs`
+
 ### 3.6 State Dynamics View
 
 #### 3.6.1 Agent State Machine
@@ -1087,6 +1134,7 @@ AppConfig
 |   |   +-- key: String           // HSM/Vault URI (SR-005, SR-006) or file path
 |   |   +-- ca_cert: PathBuf
 |   +-- timeout_secs: u64         // Default: 30
+|   +-- observation_interval_secs: u64  // Default: 30 (FR-087, aligned with NFR-007)
 |   +-- circuit_breaker
 |       +-- failure_threshold: u32  // Default: 5
 |       +-- reset_timeout_secs: u64 // Default: 60
@@ -1204,6 +1252,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | `AuditRepository` is insert-only (no update/delete) | Enforces audit immutability at the trait API level; implementations cannot accidentally expose mutation; hash-chain integrity (SR-015) depends on append-only semantics | FR-061, SR-015, SR-026 |
 | Repository injection via `AppState` (compile-time DI) | No runtime DI framework needed; `main.rs` constructs concrete implementations based on config and injects `Arc<dyn Trait>` into `AppState`; consistent with existing `KeylimeClient` and `SettingsStore` injection pattern | -- |
 | `FallbackAttestationRepository` preserves current behavior | Timeline distribution algorithm (3.7.1) runs inside the fallback repository implementation, not in the handler; isolates the pre-DB algorithm behind the trait so the same handler code works with real history data once `SqlAttestationRepository` is implemented | FR-024 |
+| Background `tokio::spawn` task for observations | Decouples attestation recording from frontend requests; ensures timeline data is continuous even when no user is viewing the dashboard; reuses `record_agent_observations()` to guarantee identical logic in both paths; 30s interval aligns with NFR-007 polling cadence and dedup tracker window | FR-087, NFR-007, NFR-020 |
 | No `AgentRepository` — agents excluded from repository pattern | Agents are Keylime-owned data observed via pass-through proxy; all operations (list, detail, actions, bulk) forward to Verifier/Registrar APIs and cache responses (10s TTL). Keeping agents out of the repository layer preserves graceful degradation (NFR-016): agent listings work even when the webtool DB is down. `agent_id` in attestation/alert records is a bare UUID reference, not a foreign key requiring local agent persistence | FR-012, NFR-016 |
 
 <!-- CHANGED: Added 7 repository abstraction design rationale entries -->
@@ -1246,7 +1295,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | Storage fallback | In-memory repository implementations when DB unavailable (3.3.11) | NFR-016 |
 | Fault tolerance | Circuit breaker on Verifier API (threshold: 5, reset: 60s) | NFR-017 |
 | Log fetch limit | Max 5 parallel concurrent Verifier log fetches | NFR-023 |
-| Reconciliation | Periodic sweep every 5 minutes | NFR-020 |
+| Reconciliation | Periodic sweep every 5 minutes via background observation task (3.5.4) | NFR-020, FR-087 |
 | Frontend query cache | TanStack Query: 30s stale time, 1 retry | NFR-001 |
 
 ---
@@ -1314,6 +1363,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-083 | 3.4.3 | Raw Data tab: compact copy icon button to the right of source selector group; Clipboard API with 2s checkmark feedback |
 | FR-084 | 3.2.2 | `KpiCard.tsx`: optional `linkTo` prop wraps card in React Router `<Link>`; Dashboard page maps each KPI to its target route (e.g., Failed Agents → `/agents?state=failed,invalid_quote,tenant_failed`) |
 | FR-085 | 3.2.2 | `Alerts.tsx`: three Recharts donut `PieChart` components below alert table — By Severity, By Type, By State; clickable segments navigate to `/alerts?{dimension}={value}` with filter pre-applied; color maps match Dashboard alert chart (FR-047) |
+| FR-087 | 3.5.4, 3.8.1 | Background `tokio::spawn` observation task, `record_agent_observations()` reuse, dedup tracker, configurable interval |
 
 ### 6.2 Non-Functional Requirements
 

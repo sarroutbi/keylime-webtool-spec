@@ -120,6 +120,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-084 | Fleet Overview KPI card drill-down navigation | SHOULD | Dashboard - Key Performance Indicators |
 | FR-085 | Alert Center distribution pie charts (by severity, type, state) | MUST | Revocation - Alert Workflow |
 | FR-086 | Integrations topology view with SSH connect | SHOULD | Integration Status - Backend Connectivity |
+| FR-087 | Background attestation observation recording independent of frontend | MUST | Attestation Analytics - Overview Dashboard |
 
 ### 2.2 Non-Functional Requirements
 
@@ -2760,6 +2761,42 @@ Feature: Integrations Topology View
     And the node statuses MUST match those displayed in List View
 ```
 
+### FR-087: Background Attestation Observation Recording
+
+**Description:** The System MUST continuously record attestation observations (pass/fail per agent) at the polling interval (default 30 seconds, aligned with NFR-007) via a background task, independent of frontend API requests. The background task MUST iterate over all known agents at each interval, query the Keylime Verifier for current attestation state, and store the result through the `AttestationRepository` (FR-024). Duplicate observations within the dedup interval (same agent, same result, within 30 seconds of last recorded observation) MUST be suppressed. Every 5 minutes (aligned with NFR-020), the background task MUST perform a full fleet reconciliation sweep to detect state drift. The observation interval MUST be configurable via `AppConfig`. If the Keylime Verifier API is unreachable, the background task MUST log a warning and retry on the next interval without crashing. The background task MUST shut down gracefully when the application receives a termination signal.
+
+**Trace:** Attestation Analytics - Overview Dashboard; FR-024, NFR-006, NFR-007, NFR-020
+
+```gherkin
+Feature: Background Attestation Observation Recording
+
+  Scenario: Observations recorded when no user is viewing the dashboard
+    Given the backend is running with the background observation task active
+    And no frontend clients are connected
+    And the Keylime Verifier reports 50 agents in GET_QUOTE state and 2 in FAILED state
+    When 5 minutes elapse
+    Then the AttestationRepository MUST contain at least 10 observation records
+    And the hourly attestation timeline (FR-024) MUST show non-zero bars for the elapsed period
+
+  Scenario: Dedup interval prevents duplicate observations
+    Given agent "agent-042" was last recorded as "pass" 15 seconds ago
+    And agent "agent-042" is still in GET_QUOTE state (pass)
+    When the background observation task runs its next cycle
+    Then a new observation for agent "agent-042" MUST NOT be stored
+    And the dedup tracker MUST retain the existing timestamp
+    But if agent "agent-042" transitions to FAILED state before the next cycle
+    Then a new observation with result "fail" MUST be stored immediately
+
+  Scenario: Graceful degradation when Keylime API is unreachable
+    Given the background observation task is running
+    And the Keylime Verifier API becomes unreachable
+    When the next observation cycle executes
+    Then the task MUST log a warning indicating the Verifier is unreachable
+    And the task MUST NOT crash or panic
+    And the task MUST retry on the subsequent interval
+    And previously recorded observations MUST remain intact in the repository
+```
+
 ---
 
 ## 4. Non-Functional Requirements Detail
@@ -4050,7 +4087,8 @@ The design details that realize these requirements -- including component decomp
 | IR-017: Sidebar Visibility Toggle | 3.2.2 | Composition View |
 | IR-018: Backend Health Probes | 3.7.3 | Algorithm View |
 | IR-019: Repository Abstraction Layer | 3.3.11 | Logical View |
+| IR-020: Background Attestation Recording | 3.5.4 | Interaction View |
 
-<!-- CHANGED: Added IR-019 for repository abstraction layer -->
+<!-- CHANGED: Added IR-020 for background attestation recording -->
 
 The SDD also includes a full SRS traceability matrix (Section 6) mapping every implemented requirement to its corresponding design element.
