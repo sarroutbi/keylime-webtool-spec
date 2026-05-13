@@ -128,6 +128,7 @@ The System transforms Keylime from a CLI-driven security tool into a visual oper
 | FR-092 | PAM-based authentication for Cockpit deployments | MUST | Cockpit Plugin - Authentication |
 | FR-093 | RPM packaging and /usr/share/cockpit/ installation | MUST | Cockpit Plugin - Packaging |
 | FR-094 | Conditional plugin visibility via manifest conditions | SHOULD | Cockpit Plugin - Deployment Model |
+| FR-095 | Registrar reachability, latency, and registration monitoring | MUST | System Performance - Registrar Metrics |
 
 ### 2.2 Non-Functional Requirements
 
@@ -3059,6 +3060,57 @@ Feature: Conditional Plugin Visibility via Manifest Conditions
     But if any condition path is missing
     Then the plugin MUST NOT appear in the Cockpit sidebar
 ```
+
+### FR-095: Registrar Reachability, Latency, and Registration Monitoring
+
+**Description:** The System MUST monitor Keylime Registrar health using metrics derivable from the Keylime Registrar REST API and the dashboard backend's own instrumentation. Monitored metrics MUST include: registrar reachability (boolean probe result), API round-trip latency in milliseconds from a lightweight probe request, registered agent count (from `GET /v2/agents/` on the Registrar), and registration throughput (derived by computing registered-agent-count deltas across successive polling intervals). Unlike verifier monitoring (FR-064), the Registrar has no circuit breaker requirement — NFR-017 applies exclusively to Verifier API calls. Core service health probes MUST bypass any future connection-management layer to reflect real connectivity status, consistent with the FR-057 precedent for core service health checks. Registrar metrics MUST be included in the unified performance summary endpoint alongside verifier metrics (FR-064) so the frontend can fetch both Verifier and Registrar health in a single API call.
+
+**Trace:** System Performance - Registrar Metrics; FR-057 (Backend Connectivity); FR-064 (Verifier Metrics)
+
+```gherkin
+Feature: Registrar Reachability, Latency, and Registration Monitoring
+
+  Scenario: Display registrar reachability and latency
+    Given the deployment has one registrar at 10.0.0.2:8891
+    When the user navigates to System Performance
+    Then the registrar MUST display a reachability indicator (green "UP" or red "DOWN")
+    And the registrar MUST display its API round-trip latency in milliseconds
+    And no circuit breaker state MUST be displayed for the registrar (NFR-017 is Verifier-only)
+
+  Scenario: Alert on registrar unreachable
+    Given the registrar at 10.0.0.2:8891 is unreachable
+    When the System probe fails to connect to the registrar
+    Then the registrar MUST display a red "DOWN" indicator
+    And a CRITICAL alert MUST be raised indicating "Registrar unreachable"
+
+  Scenario: Display registered agent count
+    Given the registrar is reachable
+    When the System queries GET /v2/agents/ on the registrar
+    Then the registered agent count MUST be displayed in the System Performance view
+    And the count MUST reflect the total number of agents currently registered with the registrar
+
+  Scenario: Display registration throughput
+    Given the System has queried the registrar agent count at two successive polling intervals
+    When the user views the System Performance summary
+    Then the registration throughput (registrations per interval) MUST be displayed as the delta between successive agent counts
+    And a negative delta MUST be displayed when agents are deregistered between intervals
+
+  Scenario: Registrar metrics included in unified performance endpoint
+    Given the unified performance summary endpoint is called
+    When the response is returned
+    Then the response MUST include both verifier metrics (FR-064) and registrar metrics
+    And registrar metrics MUST include reachability, latency, agent count, and registration throughput
+    And the frontend MUST be able to render both metric sets from a single API call
+
+  Scenario: Registrar probe bypasses connection management
+    Given a hypothetical connection management layer is configured for the registrar
+    And the registrar service is reachable
+    When the System performs a registrar health probe
+    Then the probe MUST connect directly to the registrar endpoint
+    And the probe result MUST reflect actual registrar connectivity
+```
+
+**Implementation Notes:** The Keylime Registrar REST API exposes agent registration data via `GET /v2/agents/` and individual agent details via `GET /v2/agents/{agent_id}`. Registration throughput is a derived metric computed by the dashboard backend by comparing the registered agent count across successive polling intervals — it is not read directly from a Registrar endpoint. The Registrar API does not expose registration error rates or internal queue depths; monitoring those metrics would require an external observability stack and is outside the scope of this requirement. Unlike the Verifier (which has a circuit breaker per NFR-017), the Registrar has no circuit breaker requirement in this specification — probes are always direct.
 
 ---
 

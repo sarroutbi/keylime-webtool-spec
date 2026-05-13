@@ -931,6 +931,7 @@ All list endpoints use a standard pagination wrapper inside `data`:
 |   +-- GET /siem                SIEM status (FR-063)
 +-- /performance
 |   +-- GET /verifiers           Verifier metrics (FR-064)
+|   +-- GET /registrar           Registrar metrics (FR-095)
 |   +-- GET /database            DB pool metrics (FR-065)
 |   +-- GET /api-response-times  API latency (FR-066)
 |   +-- GET /config              Live config + drift (FR-067)
@@ -972,7 +973,7 @@ All list endpoints use a standard pagination wrapper inside `data`:
 | `/policies` | Policies | FR-033 |
 | `/certificates` | Certificates | FR-050 |
 | `/alerts` | Alerts | FR-047 |
-| `/performance` | Performance | FR-064 |
+| `/performance` | Performance | FR-064, FR-095 |
 | `/audit` | AuditLog | FR-042 |
 | `/integrations` | Integrations | FR-057 |
 | `/settings` | Settings | FR-002, FR-006, FR-008 |
@@ -1606,6 +1607,7 @@ Maximum 5 parallel concurrent log fetches to the Verifier API, enforced via Toki
 | FR-092 | 3.5.3, 5.1 | PAM authentication flow, system user/group → RBAC role mapping |
 | FR-093 | 3.2.4 | RPM packaging, /usr/share/cockpit/keylime/ installation path |
 | FR-094 | 3.2.4 | manifest.json conditions (path-exists) for conditional plugin visibility |
+| FR-095 | 3.4.3 | `GET /api/performance/registrar` — reachability, latency, agent count, registration throughput |
 
 ### 6.2 Non-Functional Requirements
 
