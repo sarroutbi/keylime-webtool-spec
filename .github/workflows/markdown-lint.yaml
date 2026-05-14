@@ -34,7 +34,7 @@ jobs:
           echo "$CHANGED"
           echo "lintable=$(cat "$GITHUB_OUTPUT" | grep lintable | cut -d= -f2)"
 
-      - uses: DavidAnson/markdownlint-cli2-action@v19
+      - uses: DavidAnson/markdownlint-cli2-action@v23
         if: steps.filter.outputs.lintable == 'true'
         with:
           globs: '**/*.md'
